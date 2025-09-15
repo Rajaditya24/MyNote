@@ -1,1 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Keep Notes Clone</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1 class="app-title">📝 My Keep Notes</h1>
+
+  <!-- AUTH -->
+  <div id="auth" class="center-box">
+    <div class="card">
+      <h2>Register</h2>
+      <label>Username</label>
+      <input id="r_username">
+      <div id="r_user_error" class="error"></div>
+
+      <label>Password</label>
+      <input id="r_password" type="password">
+      <div id="r_pass_error" class="error"></div>
+
+      <label>Favorite Game/Dish</label>
+      <input id="r_fav">
+
+      <button onclick="register()">Register</button>
+    </div>
+
+    <div class="card">
+      <h2>Login</h2>
+      <label>Username</label>
+      <input id="l_username">
+      <div id="l_user_error" class="error"></div>
+
+      <label>Password</label>
+      <input id="l_password" type="password">
+      <div id="l_pass_error" class="error"></div>
+
+      <button onclick="login()">Login</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" style="display:none;">
+    <div class="topbar">
+      <h2 id="welcome"></h2>
+      <button onclick="logout()">Logout</button>
+    </div>
+    <h3>Dashboard</h3>
+
+    <div class="action-bar">
+      <button class="select-btn" onclick="toggleSelectMode()">☑ Select</button>
+      <button class="add-btn" onclick="showEditor()">+ Add Template</button>
+      <button class="del-btn" onclick="deleteSelectedNotes()">🗑 Delete Templates</button>
+    </div>
+
+    <div id="notes_grid" class="grid"></div>
+  </div>
+
+  <!-- NOTE EDITOR -->
+  <div id="editor" style="display:none;">
+    <div class="editor-header">
+      <button class="back-btn" onclick="backToDashboard()">← Back</button>
+      <button class="save-btn" onclick="saveNote()">💾 Save</button>
+    </div>
+    <div class="card editor-card">
+      <label>Note Type</label>
+      <select id="note_type" onchange="toggleEditorType()">
+        <option value="text">Text</option>
+        <option value="todo">To-Do List</option>
+      </select>
+
+      <label>Title</label>
+      <input id="note_title">
+
+      <div id="text_editor">
+        <label>Write your note...</label>
+        <textarea id="note_content" rows="15"></textarea>
+      </div>
+
+      <div id="todo_editor" style="display:none;">
+        <ul id="todo_list"></ul>
+        <input id="todo_input" placeholder="Add a task and press Enter">
+      </div>
+    </div>
+  </div>
+
+<script>
+// ===== Session check =====
+window.onload = async function(){
+  let res = await fetch("/whoami"); let d = await res.json();
+  if(d.logged_in){ showDashboard(d.username); }
+};
+
+// ===== Auth =====
+async function register(){ clearErrors();
+  let res = await fetch("/register",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({username:r_username.value,password:r_password.value,favorite:r_fav.value})});
+  let d=await res.json();
+  if(d.status==="error"){ r_user_error.innerText=d.msg; }
+  else{ showDashboard(r_username.value); }
+}
+async function login(){ clearErrors();
+  let res = await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({username:l_username.value,password:l_password.value})});
+  let d=await res.json();
+  if(d.status==="error"){ l_user_error.innerText=d.msg; }
+  else{ showDashboard(d.username); }
+}
+function clearErrors(){ document.querySelectorAll(".error").forEach(e=>e.innerText=""); }
+async function logout(){ await fetch("/logout",{method:"POST"}); auth.style.display="flex"; dashboard.style.display="none"; }
+
+// ===== Dashboard =====
+let selectMode = false;
+function showDashboard(username){
+  auth.style.display="none"; dashboard.style.display="block";
+  welcome.innerText="Welcome, "+username+"!";
+  loadNotes();
+}
+async function loadNotes(){
+  let res=await fetch("/notes"); let notes=await res.json();
+  notes_grid.innerHTML="";
+  for(let n of notes){
+    let div=document.createElement("div");
+    div.className="card note-card";
+    div.innerHTML=`<h3>${n.title}</h3><p>${n.type.toUpperCase()}</p>`;
+
+    div.addEventListener("click", e=>{
+      if(!e.target.classList.contains("note-select")) editNote(n.title);
+    });
+
+    let cb=document.createElement("input");
+    cb.type="checkbox"; cb.className="note-select";
+    cb.value=n.title; cb.style.display=selectMode?"inline":"none";
+    cb.style.transform="scale(1.5)";
+    div.insertBefore(cb, div.firstChild);
+
+    notes_grid.appendChild(div);
+  }
+}
+function toggleSelectMode(){
+  selectMode=!selectMode;
+  document.querySelectorAll(".note-select").forEach(cb=>{
+    cb.style.display=selectMode?"inline":"none";
+  });
+}
+async function deleteSelectedNotes(){
+  let selected=[...document.querySelectorAll(".note-select:checked")].map(cb=>cb.value);
+  if(selected.length===0) return;
+  await fetch("/delete_notes",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({titles:selected})});
+  loadNotes();
+}
+
+// ===== Editor =====
+function showEditor(){ dashboard.style.display="none"; editor.style.display="block"; resetEditor(); }
+function backToDashboard(){ editor.style.display="none"; dashboard.style.display="block"; }
+function resetEditor(){ note_title.value=""; note_content.value=""; todo_list.innerHTML=""; note_type.value="text"; toggleEditorType(); }
+
+function toggleEditorType(){ text_editor.style.display=note_type.value==="text"?"block":"none"; todo_editor.style.display=note_type.value==="todo"?"block":"none"; }
+
+todo_input.addEventListener("keypress",e=>{
+  if(e.key==="Enter" && todo_input.value.trim()){
+    addTask(todo_input.value); todo_input.value="";
+  }
+});
+function addTask(text, done=false){
+  let li=document.createElement("li");
+  li.className="task-row";
+
+  // delete button (hidden by default)
+  let del=document.createElement("button");
+  del.className="del-btn";
+  del.innerText="🗑";
+  del.onclick=()=>li.remove();
+  del.style.display="none";
+
+  // checkbox
+  let cb=document.createElement("input");
+  cb.type="checkbox"; cb.checked=done;
+  cb.onchange=()=>{ span.style.textDecoration=cb.checked?"line-through":"none"; };
+
+  // editable span
+  let span=document.createElement("span");
+  span.innerText=text;
+  span.className="task-span";
+  span.style.textDecoration=done?"line-through":"none";
+
+  // edit mode on click
+  span.onclick=()=>{
+    let input=document.createElement("textarea");
+    input.value=span.innerText;
+    input.className="task-text";
+    input.onblur=()=>{
+      span.innerText=input.value;
+      li.replaceChild(span,input);
+      del.style.display="none";
+    };
+    li.replaceChild(input,span);
+    input.focus();
+    del.style.display="inline"; // show delete when editing
+  };
+
+  li.appendChild(del);
+  li.appendChild(cb);
+  li.appendChild(span);
+  todo_list.appendChild(li);
+}
+
+async function saveNote(){
+  let type=note_type.value, title=note_title.value, content="";
+  if(type==="text"){ content=note_content.value; }
+  else {
+    let tasks=[]; todo_list.querySelectorAll("li").forEach(li=>{
+      let txt=li.querySelector("span")?li.querySelector("span").innerText:li.querySelector(".task-text").value;
+      let done=li.querySelector("input[type=checkbox]").checked;
+      tasks.push({text:txt, done:done});
+    });
+    content=JSON.stringify(tasks);
+  }
+  await fetch("/create_note",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({title,content,type})});
+  loadNotes();
+}
+async function editNote(title){
+  let res=await fetch("/note/"+title); let note=await res.json();
+  showEditor(); note_title.value=note.title; note_type.value=note.type; toggleEditorType();
+  if(note.type==="text"){ note_content.value=note.content; }
+  else { todo_list.innerHTML=""; JSON.parse(note.content).forEach(t=>addTask(t.text,t.done)); }
+}
+</script>
+</body>
+</html>
 
