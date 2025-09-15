@@ -177,6 +177,3 @@ def delete_note():
 def get_notes(username):
     notes = get_user_notes(username)
     return jsonify({'success': True, 'notes': notes})
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
