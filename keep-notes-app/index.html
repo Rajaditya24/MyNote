@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keep Notes - Student Project</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Login/Register Page -->
+    <div id="auth-page" class="page active">
+        <div class="auth-container">
+            <div class="auth-header">
+                <i class="fas fa-sticky-note logo-icon"></i>
+                <h1>Keep Notes</h1>
+                <p>Your digital notebook</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="login-form" class="auth-form active">
+                <h2>Welcome Back!</h2>
+                <form onsubmit="login(event)">
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="login-username" placeholder="Username" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="login-password" placeholder="Password" required>
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+                <p class="auth-switch">
+                    Don't have an account? 
+                    <a href="#" onclick="toggleForm()">Register here</a>
+                </p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="auth-form">
+                <h2>Create Account</h2>
+                <form onsubmit="register(event)">
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="reg-username" placeholder="Choose a username" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="reg-password" placeholder="Create password" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-heart"></i>
+                        <input type="text" id="reg-favorite" placeholder="Favorite game or dish" required>
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-user-plus"></i> Register
+                    </button>
+                </form>
+                <p class="auth-switch">
+                    Already have an account? 
+                    <a href="#" onclick="toggleForm()">Login here</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboard-page" class="page">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fas fa-sticky-note"></i>
+                <span>Keep Notes</span>
+            </div>
+            <div class="nav-user">
+                <span id="username-display"></span>
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </nav>
+
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <h2>My Notes</h2>
+                <button onclick="showCreateNote()" class="btn-create">
+                    <i class="fas fa-plus"></i> New Note
+                </button>
+            </div>
+
+            <div id="notes-grid" class="notes-grid">
+                <!-- Notes will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="admin-page" class="page">
+        <nav class="navbar admin-nav">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>Admin Panel</span>
+            </div>
+            <div class="nav-user">
+                <span>Administrator</span>
+                <button onclick="logout()" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </nav>
+
+        <div class="dashboard-container">
+            <div class="dashboard-header">
+                <h2>User Management</h2>
+            </div>
+
+            <div id="users-table" class="admin-table">
+                <!-- Users table will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Note Modal -->
+    <div id="create-note-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Note</h3>
+                <button onclick="closeModal()" class="btn-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="createNote(event)">
+                <div class="input-group">
+                    <input type="text" id="note-title" placeholder="Note title" required>
+                </div>
+                <div class="input-group">
+                    <select id="note-type">
+                        <option value="text">Text Note</option>
+                        <option value="todo">To-Do List</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <textarea id="note-content" placeholder="Write your note here..." rows="6" required></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" onclick="closeModal()" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Note</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let userType = null;
+
+        // Toggle between login and register forms
+        function toggleForm() {
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            
+            loginForm.classList.toggle('active');
+            registerForm.classList.toggle('active');
+        }
+
+        // Login function
+        async function login(event) {
+            event.preventDefault();
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = username;
+                    userType = data.user_type;
+                    
+                    if (userType === 'admin') {
+                        showAdminPanel(data.users_data);
+                    } else {
+                        document.getElementById('username-display').textContent = username;
+                        loadNotes(data.notes);
+                        showPage('dashboard-page');
+                    }
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('Login failed. Please try again.');
+            }
+        }
+
+        // Register function
+        async function register(event) {
+            event.preventDefault();
+            const username = document.getElementById('reg-username').value;
+            const password = document.getElementById('reg-password').value;
+            const favorite_item = document.getElementById('reg-favorite').value;
+
+            try {
+                const response = await fetch('/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password, favorite_item })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Registration successful! Please login.');
+                    toggleForm();
+                    document.getElementById('reg-username').value = '';
+                    document.getElementById('reg-password').value = '';
+                    document.getElementById('reg-favorite').value = '';
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('Registration failed. Please try again.');
+            }
+        }
+
+        // Show specific page
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        // Show admin panel
+        function showAdminPanel(usersData) {
+            showPage('admin-page');
+            
+            let tableHTML = `
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Favorite Item</th>
+                            <th>Password Hash</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            usersData.forEach(user => {
+                tableHTML += `
+                    <tr>
+                        <td>${user.username}</td>
+                        <td>${user.favorite_item}</td>
+                        <td class="password-hash">${user.password_hash}</td>
+                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            document.getElementById('users-table').innerHTML = tableHTML;
+        }
+
+        // Load and display notes
+        function loadNotes(notes) {
+            const notesGrid = document.getElementById('notes-grid');
+            
+            if (notes.length === 0) {
+                notesGrid.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-sticky-note"></i>
+                        <h3>No notes yet</h3>
+                        <p>Create your first note to get started!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let notesHTML = '';
+            notes.forEach(note => {
+                const noteClass = note.type === 'todo' ? 'note-todo' : 'note-text';
+                const icon = note.type === 'todo' ? 'fas fa-list-check' : 'fas fa-sticky-note';
+                
+                notesHTML += `
+                    <div class="note-card ${noteClass}">
+                        <div class="note-header">
+                            <div class="note-title">
+                                <i class="${icon}"></i>
+                                ${note.title}
+                            </div>
+                            <button onclick="deleteNote('${note.id}')" class="btn-delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                        <div class="note-content">
+                            ${note.content.replace(/\n/g, '<br>')}
+                        </div>
+                        <div class="note-footer">
+                            <small>Created: ${new Date(note.created_at).toLocaleDateString()}</small>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            notesGrid.innerHTML = notesHTML;
+        }
+
+        // Show create note modal
+        function showCreateNote() {
+            document.getElementById('create-note-modal').classList.add('active');
+        }
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('create-note-modal').classList.remove('active');
+            document.getElementById('note-title').value = '';
+            document.getElementById('note-content').value = '';
+        }
+
+        // Create new note
+        async function createNote(event) {
+            event.preventDefault();
+            const title = document.getElementById('note-title').value;
+            const content = document.getElementById('note-content').value;
+            const type = document.getElementById('note-type').value;
+
+            try {
+                const response = await fetch('/create_note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: currentUser,
+                        title,
+                        content,
+                        type
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeModal();
+                    // Reload notes
+                    const notesResponse = await fetch(`/get_notes/${currentUser}`);
+                    const notesData = await notesResponse.json();
+                    loadNotes(notesData.notes);
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('Failed to create note. Please try again.');
+            }
+        }
+
+        // Delete note
+        async function deleteNote(noteId) {
+            if (!confirm('Are you sure you want to delete this note?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/delete_note', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: currentUser,
+                        note_id: noteId
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Reload notes
+                    const notesResponse = await fetch(`/get_notes/${currentUser}`);
+                    const notesData = await notesResponse.json();
+                    loadNotes(notesData.notes);
+                } else {
+                    alert(data.message);
+                }
+            } catch (error) {
+                alert('Failed to delete note. Please try again.');
+            }
+        }
+
+        // Logout
+        function logout() {
+            currentUser = null;
+            userType = null;
+            showPage('auth-page');
+            
+            // Clear forms
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+        }
+    </script>
+</body>
+</html>
